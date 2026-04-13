@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blender ウォームアップチェックリスト</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', 'Hiragino Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 16px;
+  }
+  .card {
+    background: #16213e;
+    border: 1px solid #0f3460;
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  h1 {
+    font-size: 1.1rem;
+    color: #7ec8e3;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 0.75rem;
+    color: #555;
+    margin-bottom: 28px;
+  }
+  .timer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  #timer {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #7ec8e3;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+  }
+  button {
+    background: #0f3460;
+    color: #7ec8e3;
+    border: 1px solid #7ec8e3;
+    border-radius: 8px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s;
+  }
+  button:hover { background: #1a5276; }
+  .reset-btn {
+    background: transparent;
+    border-color: #444;
+    color: #888;
+  }
+  .reset-btn:hover { background: #222; }
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid #0f3460;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.2s;
+  }
+  .item:last-child { border-bottom: none; }
+  .item.done { opacity: 0.4; }
+  .checkbox {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #7ec8e3;
+    border-radius: 6px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+    transition: background 0.2s;
+  }
+  .item.done .checkbox {
+    background: #7ec8e3;
+  }
+  .checkmark {
+    color: #16213e;
+    font-size: 0.85rem;
+    font-weight: bold;
+    display: none;
+  }
+  .item.done .checkmark { display: block; }
+  .label { font-size: 0.95rem; line-height: 1.4; }
+  .key {
+    display: inline-block;
+    background: #0f3460;
+    border: 1px solid #7ec8e3;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 0.75rem;
+    color: #7ec8e3;
+    font-family: monospace;
+    margin-left: 6px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: #0f3460;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #7ec8e3;
+    border-radius: 2px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+  .done-msg {
+    text-align: center;
+    color: #7ec8e3;
+    font-size: 0.9rem;
+    margin-top: 20px;
+    display: none;
+    animation: fadeIn 0.5s;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⚡ Blender ウォームアップ</h1>
+  <p class="subtitle">再開時にサッと一周 — 全部チェックしたら本題へ</p>
+
+  <div class="timer-row">
+    <div id="timer">5:00</div>
+    <button id="startBtn" onclick="toggleTimer()">スタート</button>
+    <button class="reset-btn" onclick="resetTimer()">リセット</button>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+  <div id="list"></div>
+  <div class="done-msg" id="doneMsg">✅ 完了！そのまま本題へ進もう</div>
+</div>
+
+<script>
+const items = [
+  { label: "視点操作", detail: "テンキーで前・横・上 / 中ボタンで回転", keys: ["Numpad"] },
+  { label: "オブジェクト追加", detail: "メッシュを一個置く", keys: ["Shift+A"] },
+  { label: "移動・回転・拡縮", detail: "軸指定込みで動かす", keys: ["G", "R", "S"] },
+  { label: "編集モード切り替え", detail: "頂点・辺・面モードを確認", keys: ["Tab"] },
+  { label: "削除 & Undo", detail: "消してから戻す", keys: ["X", "Ctrl+Z"] },
+];
+
+let checked = new Array(items.length).fill(false);
+
+function render() {
+  const list = document.getElementById('list');
+  list.innerHTML = items.map((item, i) => `
+    <div class="item ${checked[i] ? 'done' : ''}" onclick="toggle(${i})">
+      <div class="checkbox"><span class="checkmark">✓</span></div>
+      <div class="label">
+        <strong>${item.label}</strong>
+        ${item.keys.map(k => `<span class="key">${k}</span>`).join('')}<br>
+        <span style="font-size:0.8rem;color:#888;">${item.detail}</span>
+      </div>
+    </div>
+  `).join('');
+  const done = checked.filter(Boolean).length;
+  document.getElementById('progress').style.width = (done / items.length * 100) + '%';
+  document.getElementById('doneMsg').style.display = done === items.length ? 'block' : 'none';
+}
+
+function toggle(i) {
+  checked[i] = !checked[i];
+  render();
+}
+
+// Timer
+let seconds = 300, interval = null, running = false;
+function pad(n) { return String(n).padStart(2, '0'); }
+function updateDisplay() {
+  document.getElementById('timer').textContent = pad(Math.floor(seconds/60)) + ':' + pad(seconds%60);
+  if (seconds <= 0) {
+    clearInterval(interval);
+    running = false;
+    document.getElementById('startBtn').textContent = 'スタート';
+    document.getElementById('timer').style.color = '#e74c3c';
+  }
+}
+function toggleTimer() {
+  if (running) {
+    clearInterval(interval); running = false;
+    document.getElementById('startBtn').textContent = 'スタート';
+  } else {
+    running = true;
+    document.getElementById('startBtn').textContent = '一時停止';
+    interval = setInterval(() => { seconds--; updateDisplay(); }, 1000);
+  }
+}
+function resetTimer() {
+  clearInterval(interval); running = false; seconds = 300;
+  document.getElementById('startBtn').textContent = 'スタート';
+  document.getElementById('timer').style.color = '#7ec8e3';
+  updateDisplay();
+}
+
+render();
+</script>
+</body>
+</html>
